@@ -1,0 +1,74 @@
+
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile data including role and security locks.",
+      "type": "object",
+      "properties": {
+        "fullName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "supervisor", "user"] },
+        "password": { "type": "string" },
+        "exitLockUntil": { "type": "string", "format": "date-time" },
+        "fingerprintTemplate": { "type": "string", "description": "Base64 encoded fingerprint template for identification." }
+      },
+      "required": ["fullName", "role"]
+    },
+    "AttendanceRecord": {
+      "title": "Attendance Record",
+      "description": "Record of a user's entry or exit.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["entry", "exit"] },
+        "observations": { "type": "string" },
+        "method": { "type": "string", "enum": ["qr", "fingerprint"] }
+      },
+      "required": ["userId", "timestamp", "type"]
+    },
+    "Report": {
+      "title": "Report",
+      "description": "Message from a user to an admin about a system issue.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "message": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["new", "read"] }
+      },
+      "required": ["userId", "message", "timestamp", "status"]
+    },
+    "AppSettings": {
+      "title": "App Settings",
+      "description": "Global configuration for the application mode.",
+      "type": "object",
+      "properties": {
+        "appMode": { "type": "string", "enum": ["corporate", "school"] }
+      },
+      "required": ["appMode"]
+    }
+  },
+  "auth": {
+    "providers": ["password"]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Registered users of the system."
+    },
+    "/attendance/{recordId}": {
+      "schema": "AttendanceRecord",
+      "description": "History of all check-ins and check-outs."
+    },
+    "/reports/{reportId}": {
+      "schema": "Report",
+      "description": "Error reports submitted by users."
+    },
+    "/settings/global_settings": {
+      "schema": "AppSettings",
+      "description": "Global application configuration."
+    }
+  }
+}

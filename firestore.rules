@@ -1,0 +1,106 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * CORE SECURITY PHILOSOPHY:
+     * This ruleset implements a hybrid security model combining Path-Based Ownership and Role-Based Access Control (RBAC).
+     * 
+     * DATA STRUCTURE:
+     * - /users/{userId}: User profiles secured by path-based ownership.
+     * - /attendances/{attendanceId}: Global collection of attendance records secured by field-level ownership (userId).
+     * - /roles_admin/{adminId}: A restricted collection where document existence grants administrative privileges.
+     * 
+     * KEY DECISIONS:
+     * 1. Authorization Independence: Every document contains the necessary context (e.g., userId) to make a security 
+     *    decision without requiring nested lookups or parent document reads where possible.
+     * 2. Administrative Overrides: Users verified via the 'roles_admin' collection have broad read/write access 
+     *    across the database to facilitate management.
+     * 3. Immutability: Critical relational fields like 'userId' in attendance records are protected from 
+     *    modification to ensure data integrity.
+     * 4. Prototyping Flexibility: Rules focus on WHO can access data rather than the exact SHAPE of the data, 
+     *    allowing for rapid schema iteration.
+     */
+
+    // --- GLOBAL HELPER FUNCTIONS ---
+
+    /** @description Checks if the user is authenticated. */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /** @description Checks if the authenticated user has an entry in the admin roles collection. */
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+
+    /** @description Checks if the authenticated user's UID matches the provided userId. */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /** @description Checks if the user owns the existing document and it exists. */
+    function isExistingOwner(userId) {
+      return resource != null && isOwner(userId);
+    }
+
+    // --- COLLECTION RULES ---
+
+    /**
+     * @description Rules for the User profile collection. Access is restricted to the user themselves or an administrator.
+     * @path /users/{userId}
+     * @allow (get) If auth.uid matches {userId}.
+     * @deny (update) If user attempts to change their own internal 'id' field.
+     * @principle Path-based ownership and relational integrity.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin(); // Only admins can list the full directory of users.
+      
+      // On creation, ensure the internal 'id' matches the document path for consistency.
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      
+      // On update, ensure the 'id' field remains immutable.
+      allow update: if (isExistingOwner(userId) || isAdmin()) && request.resource.data.id == resource.data.id;
+      
+      allow delete: if isAdmin(); // Only admins can delete user accounts.
+    }
+
+    /**
+     * @description Rules for Attendance records. Users can manage their own records; admins can manage everything.
+     * @path /attendances/{attendanceId}
+     * @allow (list) If query is filtered by userId == auth.uid.
+     * @deny (create) If the userId in the record does not match the authenticated user.
+     * @principle Field-level ownership and query security.
+     */
+    match /attendances/{attendanceId} {
+      // Users can only see their own attendance records. Admins see all.
+      // Note: For 'list', the developer must use .where('userId', '==', auth.uid)
+      allow get, list: if isAdmin() || (resource != null && resource.data.userId == request.auth.uid);
+      
+      // Users can record their own attendance.
+      allow create: if isAdmin() || (request.resource.data.userId == request.auth.uid);
+      
+      // Attendance records are generally immutable once created, except by admins.
+      allow update: if isAdmin();
+      
+      // Only admins can remove attendance records.
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * @description Rules for the Admin role registry. This is a highly restricted system collection.
+     * @path /roles_admin/{adminId}
+     * @allow (get) If the user is an admin.
+     * @deny (create) If the user is not already an admin.
+     * @principle Restricted system-level configuration.
+     */
+    match /roles_admin/{adminId} {
+      // Access to the admin list is restricted to existing admins.
+      allow get, list: if isAdmin();
+      
+      // Administrative roles must be managed by existing admins or via a secure backend process.
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}
