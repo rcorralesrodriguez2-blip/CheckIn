@@ -27,7 +27,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
   key: 'Content-Security-Policy',
-  value: "connect-src 'self' ws://127.0.0.1:52181 ws://127.0.0.1:52182 ws://localhost:52181 ws://localhost:52182;",
+  value: "connect-src 'self' http://localhost:8000 http://127.0.0.1:8000 ws://127.0.0.1:52181 ws://127.0.0.1:52182 ws://localhost:52181 ws://localhost:52182;",
 },
         ],
       },

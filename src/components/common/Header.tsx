@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
 import { Logo } from "./Logo";
 import { LogOut, Menu } from "lucide-react";
 import { useState } from "react";
@@ -33,7 +33,16 @@ export function Header({ unreadReportsCount = 0 }: { unreadReportsCount?: number
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="left" className="w-[85vw] max-w-[320px] p-0 border-none">
-                   <AdminSidebar onLinkClick={closeSheet} unreadReportsCount={unreadReportsCount} />
+                  <SheetHeader className="p-4 border-b">
+                    <SheetTitle className="flex items-center gap-2">
+                      <Logo />
+                      <span>Menu</span>
+                    </SheetTitle>
+                    <SheetDescription>
+                      Navigation menu for admin functions
+                    </SheetDescription>
+                  </SheetHeader>
+                  <AdminSidebar onLinkClick={closeSheet} unreadReportsCount={unreadReportsCount} />
                 </SheetContent>
               </Sheet>
             )}

@@ -76,11 +76,26 @@ export async function createAttendanceRecord(record: AttendanceRecord): Promise<
   const connection = await pool.getConnection();
   try {
     const recordId = record.id || `${record.userId}-${Date.now()}`;
-    await connection.query(
-      `INSERT INTO attendance_records (id, userId, timestamp, type, photoUrl, observations, method) 
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [recordId, record.userId, record.timestamp, record.type, record.photo, record.observations, record.method]
+    const timestampDate = record.timestamp ? new Date(record.timestamp) : new Date();
+
+    console.log('DB: Inserting attendance record:', {
+      id: recordId,
+      userId: record.userId,
+      timestamp: timestampDate,
+      type: record.type,
+      method: record.method || 'qr'
+    });
+    
+    const result = await connection.query(
+      `INSERT INTO attendance_records (id, userId, timestamp, type, photo, photoUrl, observations, method) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [recordId, record.userId, timestampDate, record.type, record.photo || null, record.photoUrl || null, record.observations || '', record.method || 'qr']
     );
+    
+    console.log('DB: Attendance record inserted successfully:', result);
+  } catch (error) {
+    console.error('DB: Error inserting attendance record:', error);
+    throw error;
   } finally {
     connection.release();
   }
@@ -89,19 +104,19 @@ export async function createAttendanceRecord(record: AttendanceRecord): Promise<
 export async function getAttendanceRecords(userId: string, startDate?: Date, endDate?: Date): Promise<AttendanceRecord[]> {
   const connection = await pool.getConnection();
   try {
-    let query = 'SELECT * FROM attendance_records WHERE userId = ?';
+    let query = 'SELECT ar.*, u.fullName as userName, u.photo as userPhoto FROM attendance_records ar LEFT JOIN users u ON ar.userId = u.id WHERE ar.userId = ?';
     const params: any[] = [userId];
     
     if (startDate) {
-      query += ' AND timestamp >= ?';
+      query += ' AND ar.timestamp >= ?';
       params.push(startDate);
     }
     if (endDate) {
-      query += ' AND timestamp <= ?';
+      query += ' AND ar.timestamp <= ?';
       params.push(endDate);
     }
     
-    query += ' ORDER BY timestamp DESC';
+    query += ' ORDER BY ar.timestamp DESC';
     const [rows] = await connection.query(query, params);
     return rows as AttendanceRecord[];
   } finally {
@@ -112,19 +127,19 @@ export async function getAttendanceRecords(userId: string, startDate?: Date, end
 export async function getAllAttendanceRecords(startDate?: Date, endDate?: Date): Promise<AttendanceRecord[]> {
   const connection = await pool.getConnection();
   try {
-    let query = 'SELECT * FROM attendance_records WHERE 1=1';
+    let query = 'SELECT ar.*, u.fullName as userName, u.photo as userPhoto FROM attendance_records ar LEFT JOIN users u ON ar.userId = u.id WHERE 1=1';
     const params: any[] = [];
     
     if (startDate) {
-      query += ' AND timestamp >= ?';
+      query += ' AND ar.timestamp >= ?';
       params.push(startDate);
     }
     if (endDate) {
-      query += ' AND timestamp <= ?';
+      query += ' AND ar.timestamp <= ?';
       params.push(endDate);
     }
     
-    query += ' ORDER BY timestamp DESC';
+    query += ' ORDER BY ar.timestamp DESC';
     const [rows] = await connection.query(query, params);
     return rows as AttendanceRecord[];
   } finally {
@@ -172,10 +187,12 @@ export async function createMessage(message: Message): Promise<void> {
   const connection = await pool.getConnection();
   try {
     const messageId = message.id || `msg-${Date.now()}`;
+    const timestampDate = message.timestamp ? new Date(message.timestamp) : new Date();
+    
     await connection.query(
       `INSERT INTO messages (id, userId, userName, message, timestamp, status) 
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [messageId, message.userId, message.userName, message.message, message.timestamp, message.status]
+      [messageId, message.userId, message.userName, message.message, timestampDate, message.status]
     );
   } finally {
     connection.release();
@@ -226,10 +243,11 @@ export async function deleteMessage(messageId: string): Promise<void> {
 export async function createReport(id: string, userId: string, title: string, description: string): Promise<void> {
   const connection = await pool.getConnection();
   try {
+    const createdAt = new Date();
     await connection.query(
-      `INSERT INTO reports (id, userId, title, description, status) 
-       VALUES (?, ?, ?, ?, 'pending')`,
-      [id, userId, title, description]
+      `INSERT INTO reports (id, userId, title, description, status, createdAt) 
+       VALUES (?, ?, ?, ?, 'new', ?)`,
+      [id, userId, title, description, createdAt]
     );
   } finally {
     connection.release();
@@ -239,15 +257,27 @@ export async function createReport(id: string, userId: string, title: string, de
 export async function getReports(userId?: string): Promise<any[]> {
   const connection = await pool.getConnection();
   try {
-    let query = 'SELECT * FROM reports';
+    let query = `
+      SELECT 
+        r.id, 
+        r.userId, 
+        u.fullName as userName, 
+        r.title, 
+        r.description as message, 
+        r.status, 
+        r.createdAt as timestamp 
+      FROM reports r
+      LEFT JOIN users u ON r.userId = u.id
+      WHERE 1=1
+    `;
     const params: any[] = [];
     
     if (userId) {
-      query += ' WHERE userId = ?';
+      query += ' AND r.userId = ?';
       params.push(userId);
     }
     
-    query += ' ORDER BY createdAt DESC';
+    query += ' ORDER BY r.createdAt DESC';
     const [rows] = await connection.query(query, params);
     return rows as any[];
   } finally {

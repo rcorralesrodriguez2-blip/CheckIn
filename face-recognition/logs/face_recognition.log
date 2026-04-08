@@ -1,0 +1,9 @@
+2026-04-07 18:03:41,118 - face_recognition - INFO - Starting FastAPI server on 0.0.0.0:8000
+2026-04-07 18:03:41,165 - face_recognition - INFO - Starting face recognition service
+2026-04-07 18:03:41,166 - face_recognition - INFO - Loading face recognition models...
+2026-04-07 18:08:24,696 - face_recognition - INFO - Face recognition request received
+2026-04-07 18:08:24,867 - face_recognition - WARNING - Face not recognized
+2026-04-07 18:08:40,464 - face_recognition - INFO - Face recognition request received
+2026-04-07 18:08:40,468 - face_recognition - WARNING - Face not recognized
+2026-04-07 18:16:35,662 - face_recognition - INFO - Face recognition request received
+2026-04-07 18:16:35,665 - face_recognition - WARNING - Face not recognized

@@ -5,7 +5,7 @@ const allowedFields = new Set(['timestamp', 'type', 'photoUrl', 'observations', 
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const record = await getAttendanceRecordById(params.id);
+  const record = await getAttendanceRecordById(id);
   if (!record) {
     return NextResponse.json({ error: 'Attendance record not found' }, { status: 404 });
   }
@@ -27,7 +27,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   try {
-    await updateAttendanceRecord(params.id, filtered);
+    await updateAttendanceRecord(id, filtered);
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });
@@ -37,7 +37,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   try {
-    await deleteAttendanceRecord(params.id);
+    await deleteAttendanceRecord(id);
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: String(error) }, { status: 500 });

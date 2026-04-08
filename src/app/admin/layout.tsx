@@ -15,8 +15,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
 
   const childrenWithProps = React.Children.map(children, child => {
     if (React.isValidElement(child)) {
-      // @ts-expect-error - injecting props
-      return React.cloneElement(child, { setUnreadReportsCount });
+      return React.cloneElement(child as React.ReactElement<any>, { setUnreadReportsCount });
     }
     return child;
   });

@@ -1,67 +1,119 @@
 export interface FingerprintScanResult {
   template: string;
-  status: 'success' | 'error';
+  status: 'success' | 'error' | 'unavailable';
   message?: string;
 }
 
-export async function captureFingerprint(): Promise<FingerprintScanResult> {
-  return new Promise((resolve) => {
-    try {
-      const ws = new WebSocket('ws://127.0.0.1:52182');
+const FINGERPRINT_SERVICE_URL = process.env.NEXT_PUBLIC_FINGERPRINT_SERVICE_URL || 'ws://127.0.0.1:52182';
+const FINGERPRINT_TIMEOUT = 8000; // 8 segundos
 
-      const timeout = setTimeout(() => {
-        ws.close();
-        resolve({
+export async function captureFingerprint(): Promise<FingerprintScanResult> {
+  // Verificar si el navegador soporta WebSocket
+  if (typeof window === 'undefined' || !window.WebSocket) {
+    return {
+      status: 'unavailable',
+      template: '',
+      message: 'WebSocket no soportado en este navegador',
+    };
+  }
+
+  return new Promise((resolve) => {
+    let ws: WebSocket | null = null;
+    let timeout: NodeJS.Timeout | null = null;
+    let isResolved = false;
+
+    const cleanup = () => {
+      if (timeout) clearTimeout(timeout);
+      if (ws) {
+        try {
+          ws.close();
+        } catch (e) {
+          // Ignorar errores al cerrar
+        }
+      }
+    };
+
+    const resolveOnce = (result: FingerprintScanResult) => {
+      if (!isResolved) {
+        isResolved = true;
+        cleanup();
+        resolve(result);
+      }
+    };
+
+    try {
+      ws = new WebSocket(FINGERPRINT_SERVICE_URL);
+
+      timeout = setTimeout(() => {
+        console.warn('⏱️ Timeout esperando huella dactilar');
+        resolveOnce({
           status: 'error',
           template: '',
-          message: `Timeout. readyState: ${ws.readyState}`,
+          message: 'Tiempo de espera agotado. Asegúrese de que el lector esté conectado.',
         });
-      }, 8000);
+      }, FINGERPRINT_TIMEOUT);
 
       ws.onopen = () => {
-        console.log('✅ WebSocket conectado!');
-        ws.send(JSON.stringify({
-          Method: 'Subscribe',
-          Type: 'fingerprint'
-        }));
+        console.log('✅ WebSocket conectado al servicio de huella');
+        try {
+          ws!.send(JSON.stringify({
+            Method: 'Subscribe',
+            Type: 'fingerprint'
+          }));
+        } catch (e) {
+          console.error('Error enviando mensaje:', e);
+          resolveOnce({
+            status: 'error',
+            template: '',
+            message: 'Error comunicándose con el lector',
+          });
+        }
       };
 
       ws.onmessage = (event) => {
-        console.log('📨 Mensaje recibido:', event.data);
+        console.log('📨 Mensaje recibido del lector:', event.data);
         try {
           const data = JSON.parse(event.data);
           if (data.Event === 'SamplesAcquired' && data.Data) {
-            clearTimeout(timeout);
-            ws.close();
-            resolve({ status: 'success', template: btoa(JSON.stringify(data.Data)) });
+            console.log('✅ Huella capturada exitosamente');
+            resolveOnce({ 
+              status: 'success', 
+              template: btoa(JSON.stringify(data.Data)),
+              message: 'Huella registrada'
+            });
           }
-        } catch (e) {}
+        } catch (e) {
+          console.warn('Error procesando mensaje:', e);
+        }
       };
 
-      ws.onerror = (e) => {
-        console.log('❌ WebSocket error:', e);
-        clearTimeout(timeout);
-        resolve({
-          status: 'error',
+      ws.onerror = (event) => {
+        console.error('❌ Error WebSocket:', event);
+        resolveOnce({
+          status: 'unavailable',
           template: '',
-          message: 'Error de conexión. Ver consola para detalles.',
+          message: 'Lector no detectado. Asegúrese de que el "DigitalPersona Web Service" esté activo o ejecute "npm run fingerprint-sim" para pruebas.',
         });
       };
 
       ws.onclose = (event) => {
-        console.log('🔌 WebSocket cerrado. Code:', event.code, 'Reason:', event.reason);
-        if (event.code !== 1000) {
-          clearTimeout(timeout);
-          resolve({
+        console.log('🔌 Conexión WebSocket cerrada. Código:', event.code, 'Razón:', event.reason);
+        if (!isResolved && event.code !== 1000) {
+          resolveOnce({
             status: 'error',
             template: '',
-            message: `Cerrado: código ${event.code} - ${event.reason || 'sin razón'}`,
+            message: `Conexión cerrada inesperadamente: código ${event.code}`,
           });
         }
       };
 
     } catch (error: any) {
-      resolve({ status: 'error', template: '', message: error?.message });
+      console.error('Error en captureFingerprint:', error);
+      resolveOnce({ 
+        status: 'error', 
+        template: '', 
+        message: error?.message || 'Error desconocido al capturar huella'
+      });
     }
   });
 }

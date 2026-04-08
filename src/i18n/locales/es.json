@@ -104,6 +104,7 @@
   "verifying_message": "Verificando...",
   "upload_qr_image_button": "Subir Imagen de Código QR",
   "attendance_saved_successfully": "El registro de asistencia se ha guardado correctamente.",
+  "registered_for": "registrada para",
   "select_scan_method_prompt": "¿Cómo le gustaría escanear el código QR?",
   "use_camera_button": "Usar Cámara",
   "filter_by_name": "Filtrar por nombre...",

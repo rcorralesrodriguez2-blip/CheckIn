@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  face-recognition:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=${DB_HOST:-db}
+      - DB_USER=${DB_USER:-root}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+      - DB_NAME=${DB_NAME:-checkin_db}
+      - FACE_SERVICE_HOST=${FACE_SERVICE_HOST:-0.0.0.0}
+      - FACE_SERVICE_PORT=${FACE_SERVICE_PORT:-8000}
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - checkin-network
+
+networks:
+  checkin-network:
+    driver: bridge

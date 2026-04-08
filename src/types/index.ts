@@ -13,6 +13,7 @@ export interface User {
   photo?: string;
   exitLockUntil?: Date | null;
   fingerprintTemplate?: string;
+  faceDescriptor?: number[];
 }
 
 export interface NewUser extends Omit<User, 'id' | 'exitLockUntil'> {
@@ -26,8 +27,9 @@ export interface AttendanceRecord {
   timestamp: Date | string;
   type: 'entry' | 'exit';
   photo?: string;
+  photoUrl?: string;
   observations?: string;
-  method?: 'qr' | 'fingerprint';
+  method?: 'qr' | 'fingerprint' | 'face';
 }
 
 export type NewAttendanceRecord = Omit<AttendanceRecord, 'id' | 'timestamp'> & {

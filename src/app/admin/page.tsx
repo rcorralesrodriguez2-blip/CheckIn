@@ -14,7 +14,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { User as UserIcon, CalendarClock, QrCode as QrCodeIcon, Users, ListChecks, Download, Trash2, LogIn, LogOut, Loader2, ScanLine, History, MoreVertical, ShieldCheck, UserCheck, Lock, MessageCircleWarning, Sparkles, Settings as SettingsIcon, Building, School, Fingerprint, UserPlus, UserCog, Activity } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { format, subDays, formatDistanceToNow, differenceInMinutes } from 'date-fns';
+import { format as _format, subDays, formatDistanceToNow as _formatDistanceToNow, differenceInMinutes } from 'date-fns';
+import { es } from 'date-fns/locale';
+
+const format = (date: Date | number, fmt: string) => {
+  const finalFmt = fmt.replace(/p/g, 'hh:mm a');
+  return _format(date, finalFmt, { locale: es });
+};
+const formatDistanceToNow = (date: Date | number) => _formatDistanceToNow(date, { locale: es });
 import { useLanguage } from "@/i18n/LanguageContext";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -33,11 +40,13 @@ import { SetExitLockDialog } from "@/components/admin/SetExitLockDialog";
 import { RegisterFingerprintDialog } from "@/components/admin/RegisterFingerprintDialog";
 import { CreateUserDialog } from "@/components/admin/CreateUserDialog";
 import { EditUserDialog } from "@/components/admin/EditUserDialog";
+import { RegisterFaceDialog } from "@/components/admin/RegisterFaceDialog";
 import { analyzeAttendance } from "@/ai/flows/attendanceAnalyzerFlow";
 import { analyzeGlobalAttendance } from "@/ai/flows/globalAttendanceAnalysisFlow";
 import { Alert, AlertTitle, AlertDescription as AlertDescriptionComponent } from "@/components/ui/alert";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { SafeComponent } from "@/components/SafeComponent";
 
 // Carga dinámica de componentes pesados para mejorar la velocidad inicial
 const DashboardCharts = dynamic(() => import('@/components/admin/DashboardCharts'), {
@@ -96,6 +105,9 @@ function DashboardPageContent({ setUnreadReportsCount }: { setUnreadReportsCount
   
   const [isFingerprintModalOpen, setIsFingerprintModalOpen] = useState(false);
   const [selectedUserForFinger, setSelectedUserForFinger] = useState<User | null>(null);
+
+  const [isFaceModalOpen, setIsFaceModalOpen] = useState(false);
+  const [selectedUserForFace, setSelectedUserForFace] = useState<User | null>(null);
 
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
@@ -184,6 +196,70 @@ function DashboardPageContent({ setUnreadReportsCount }: { setUnreadReportsCount
       });
     } finally {
       setIsGlobalAnalyzing(false);
+    }
+  };
+
+  const handleExportCSV = () => {
+    try {
+      // Ordenar por timestamp (ingreso) de forma ascendente
+      const sortedRecords = [...filteredAttendance].sort((a, b) => {
+        const aDate = parseTimestamp(a.timestamp);
+        const bDate = parseTimestamp(b.timestamp);
+        return (aDate?.getTime() || 0) - (bDate?.getTime() || 0);
+      });
+
+      // Cabeceras (usando traducciones si están disponibles)
+      const headers = [
+        t('full_name'),
+        t('id'),
+        t('date'),
+        t('time'),
+        t('type'),
+        t('tardiness'),
+        'Método',
+        t('observations')
+      ];
+
+      // Filas formateadas para CSV
+      const rows = sortedRecords.map(record => {
+        const dateObj = parseTimestamp(record.timestamp);
+        return [
+          `"${record.userName || ''}"`,
+          `"${record.userId || ''}"`,
+          dateObj ? `"${format(dateObj, 'yyyy-MM-dd')}"` : '""',
+          dateObj ? `"${format(dateObj, 'hh:mm a')}"` : '""',
+          `"${t(record.type)}"`,
+          record.tardiness !== null ? `"${record.tardiness} min"` : '""',
+          `"${record.method || 'qr'}"`,
+          `"${(record.observations || '').replace(/"/g, '""')}"`
+        ];
+      });
+
+      // Construir CSV con punto y coma (;) para mejor compatibilidad con Excel en regiones de habla hispana
+      const csvContent = [headers.join(';'), ...rows.map(row => row.join(';'))].join('\n');
+      
+      // Añadir BOM (Byte Order Mark) para que Excel reconozca UTF-8 correctamente (acentos, ñ)
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `reporte_asistencia_${_format(new Date(), 'yyyy-MM-dd')}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "Reporte Exportado",
+        description: "El archivo CSV ha sido generado correctamente.",
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        variant: "destructive",
+        title: "Error al exportar",
+        description: "No se pudo generar el archivo del reporte.",
+      });
     }
   };
 
@@ -334,7 +410,9 @@ function DashboardPageContent({ setUnreadReportsCount }: { setUnreadReportsCount
         link.download = `qr-code-${userId}.png`;
         document.body.appendChild(link);
         link.click();
-        document.body.removeChild(link);
+        if (link && document.body.contains(link)) {
+          document.body.removeChild(link);
+        }
       }
     }
   };
@@ -404,6 +482,11 @@ function DashboardPageContent({ setUnreadReportsCount }: { setUnreadReportsCount
   const handleOpenFingerprintDialog = async (user: User) => {
       setSelectedUserForFinger(user);
       setIsFingerprintModalOpen(true);
+  };
+
+  const handleOpenFaceDialog = async (user: User) => {
+      setSelectedUserForFace(user);
+      setIsFaceModalOpen(true);
   };
 
   const handleOpenEditDialog = (user: User) => {
@@ -548,6 +631,15 @@ function DashboardPageContent({ setUnreadReportsCount }: { setUnreadReportsCount
                     <CardDescription>{t('attendance_records_description')}</CardDescription>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-3">
+                     <Button 
+                        onClick={handleExportCSV} 
+                        variant="outline" 
+                        size="lg" 
+                        className="h-11 font-black glass-card hover-lift border-primary/20 text-primary shadow-sm"
+                      >
+                        <Download className="mr-2 h-5 w-5" />
+                        Exportar Reporte
+                      </Button>
                      <div className="relative">
                       <Input
                         placeholder={t('filter_by_name')}
@@ -765,6 +857,9 @@ function DashboardPageContent({ setUnreadReportsCount }: { setUnreadReportsCount
                               <DialogContent className="sm:max-w-md glass-card">
                                 <DialogHeader>
                                   <DialogTitle className="text-xl font-black">{user.fullName}</DialogTitle>
+                                  <DialogDescription>
+                                    Código QR personal para registro de asistencia
+                                  </DialogDescription>
                                 </DialogHeader>
                                 <div id={`qr-code-${user.id}`} className="flex flex-col items-center justify-center p-6 bg-white rounded-2xl shadow-inner animate-in zoom-in duration-500">
                                   <QRCodeCanvas value={getQrData(user.id)} size={240} level="H" />
@@ -790,6 +885,10 @@ function DashboardPageContent({ setUnreadReportsCount }: { setUnreadReportsCount
                                   <DropdownMenuItem onClick={() => handleOpenFingerprintDialog(user)} className="font-bold">
                                     <Fingerprint className="mr-2 h-4 w-4" />
                                     <span>Vincular Huella</span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleOpenFaceDialog(user)} className="font-bold">
+                                    <UserIcon className="mr-2 h-4 w-4" />
+                                    <span>Registrar Rostro</span>
                                   </DropdownMenuItem>
                                   <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'admin')} className="font-bold">
                                     <ShieldCheck className="mr-2 h-4 w-4" />
@@ -868,7 +967,8 @@ function DashboardPageContent({ setUnreadReportsCount }: { setUnreadReportsCount
         )}
         
         {activeView === 'scan' && loggedInUser.role === 'admin' && (
-           <div className="flex items-center justify-center p-4">
+           <SafeComponent isVisible={activeView === 'scan'} transitionDuration={300}>
+            <div className="flex items-center justify-center p-4">
                 <ScannerWrapper 
                   onAttendanceSaved={onAttendanceSaved} 
                   onCancel={() => {
@@ -876,6 +976,7 @@ function DashboardPageContent({ setUnreadReportsCount }: { setUnreadReportsCount
                   }}
                 />
             </div>
+           </SafeComponent>
         )}
 
         {activeView === 'reports' && (
@@ -1012,6 +1113,11 @@ function DashboardPageContent({ setUnreadReportsCount }: { setUnreadReportsCount
           isOpen={isFingerprintModalOpen}
           onOpenChange={setIsFingerprintModalOpen}
           user={selectedUserForFinger}
+        />
+        <RegisterFaceDialog
+          isOpen={isFaceModalOpen}
+          onOpenChange={setIsFaceModalOpen}
+          user={selectedUserForFace}
         />
         <CreateUserDialog
           isOpen={isCreateUserOpen}

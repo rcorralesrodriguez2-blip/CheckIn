@@ -104,6 +104,7 @@
   "verifying_message": "Verifying...",
   "upload_qr_image_button": "Upload QR Code Image",
   "attendance_saved_successfully": "Attendance record has been saved successfully.",
+  "registered_for": "registered for",
   "select_scan_method_prompt": "How would you like to scan the QR code?",
   "use_camera_button": "Use Camera",
   "filter_by_name": "Filter by name...",

@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger, SheetFooter } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageSquare, Send, Loader2, Bot } from 'lucide-react';
 import { chatbot } from '@/ai/flows/chatbotFlow';
@@ -74,6 +74,9 @@ export function Chatbot() {
             <Bot />
             CheckIn Support
           </SheetTitle>
+          <SheetDescription>
+            Get help and support for using the CheckIn attendance system
+          </SheetDescription>
         </SheetHeader>
         <ScrollArea className="flex-1 my-4 pr-4">
           <div className="space-y-4">

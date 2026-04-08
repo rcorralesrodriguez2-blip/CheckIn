@@ -24,7 +24,7 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export const LanguageProvider = ({ children }: { children: ReactNode }) => {
-  const [language, setLanguageState] = useState<Language>('es'); // Default a español para mayor rapidez percibida en este contexto
+  const [language, setLanguageState] = useState<Language>('es'); // Default a español
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -35,6 +35,7 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  // Actualizar el atributo lang del HTML solo cuando cambia el idioma después de la hidratación
   useEffect(() => {
     if (isClient) {
       document.documentElement.lang = language;

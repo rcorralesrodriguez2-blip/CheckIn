@@ -30,7 +30,9 @@ function RegistrationSuccessContent() {
         link.download = `qr-code-${id}.png`;
         document.body.appendChild(link);
         link.click();
-        document.body.removeChild(link);
+        if (link && document.body.contains(link)) {
+          document.body.removeChild(link);
+        }
       }
     }
   };

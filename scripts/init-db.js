@@ -11,15 +11,24 @@ async function initDatabase() {
 
   try {
     // Crear base de datos si no existe
-    await connection.query('CREATE DATABASE IF NOT EXISTS checkin');
-    console.log('✅ Base de datos "checkin" creada o ya existe');
+    await connection.query('CREATE DATABASE IF NOT EXISTS checkin_db');
+    console.log('✅ Base de datos "checkin_db" creada o ya existe');
 
     // Usar la base de datos
-    await connection.query('USE checkin');
+    await connection.query('USE checkin_db');
 
     // Leer y ejecutar el archivo SQL
     const sqlPath = path.join(process.cwd(), 'database', 'checkin_database.sql');
-    const sqlContent = fs.readFileSync(sqlPath, 'utf8');
+    let sqlContent = fs.readFileSync(sqlPath, 'utf8');
+
+    // También leer la alteración de faceDescriptor
+    try {
+      const faceSqlPath = path.join(process.cwd(), 'database', 'add_face_descriptor.sql');
+      const faceSqlContent = fs.readFileSync(faceSqlPath, 'utf8');
+      sqlContent += '\n' + faceSqlContent;
+    } catch (e) {
+      console.log('No add_face_descriptor.sql found, skipping.');
+    }
 
     // Dividir el SQL en statements individuales
     const statements = sqlContent

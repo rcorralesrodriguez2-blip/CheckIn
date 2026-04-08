@@ -14,11 +14,15 @@ const handleJson = async (response: Response) => {
 };
 
 export const createAttendanceRecord = async (record: NewAttendanceRecord): Promise<void> => {
-  await fetch(apiBase, {
+  const response = await fetch(apiBase, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(record),
   });
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || `HTTP ${response.status}`);
+  }
 };
 
 export const updateAttendanceRecord = async (recordId: string, updates: Partial<AttendanceRecord>): Promise<void> => {
