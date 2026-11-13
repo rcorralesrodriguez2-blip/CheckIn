@@ -28,4 +28,4 @@ La aplicación cuenta con las siguientes funcionalidades principales:
 ## Autores
 
 
--   Robinson Corrales
+
