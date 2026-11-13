@@ -27,9 +27,5 @@ La aplicación cuenta con las siguientes funcionalidades principales:
 
 ## Autores
 
--   Kees Noguera
+
 -   Robinson Corrales
---   Daniel Prada
--   Carlos Gonzales
--   Jeyser Pupo
--   Segio Figueroa
